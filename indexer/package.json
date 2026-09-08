@@ -10,7 +10,7 @@
     "stop": "envio stop",
     "local-docker-up": "envio local docker up",
     "local-docker-down": "envio local docker down",
-    "typecheck": "envio codegen && tsc --noEmit"
+    "typecheck": "[ -d generated ] || envio codegen; tsc --noEmit"
   },
   "dependencies": {
     "envio": "^2.31.0"
