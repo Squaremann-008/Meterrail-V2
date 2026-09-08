@@ -1,0 +1,148 @@
+# Production stack for the VPS (Hetzner or equivalent).
+#
+# Postgres lives on Neon/Supabase and Redis is either managed or the container
+# below — set REDIS_URL accordingly. Only nginx binds a public port; every
+# application service listens on the internal network.
+#
+# Deployed by deploy/scripts/deploy.sh, which pulls the images built by CI.
+
+name: meterrail
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/.htpasswd:/etc/nginx/.htpasswd:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      - api
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1/nginx-health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Renews the TLS certificate every 12 hours; certbot exits early when the
+  # certificate is not yet due, so this is cheap to leave running.
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    entrypoint: >
+      sh -c 'trap exit TERM;
+      while :; do certbot renew --webroot -w /var/www/certbot --quiet;
+      sleep 12h & wait $${!}; done'
+
+  api:
+    image: ${API_IMAGE:-ghcr.io/OWNER/meterrail-api:latest}
+    restart: always
+    env_file:
+      - .env.production
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+      HTTP_TRUST_PROXY_HEADERS: 'true'
+    expose:
+      - '8080'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/health/live']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      replicas: ${API_REPLICAS:-2}
+      # Bring the new container up and confirm it is healthy before retiring
+      # the old one, so a bad build cannot take the site down.
+      update_config:
+        order: start-first
+        failure_action: rollback
+
+  worker:
+    image: ${API_IMAGE:-ghcr.io/OWNER/meterrail-api:latest}
+    entrypoint: ['worker']
+    restart: always
+    env_file:
+      - .env.production
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+    # Exactly one replica runs the scheduler. Asynq elects a single active
+    # scheduler across instances, but keeping it to one avoids the election
+    # churn entirely; scale the pure workers below instead.
+    deploy:
+      replicas: 1
+
+  worker-extra:
+    image: ${API_IMAGE:-ghcr.io/OWNER/meterrail-api:latest}
+    entrypoint: ['worker', '-scheduler=false']
+    restart: always
+    env_file:
+      - .env.production
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+    deploy:
+      replicas: ${WORKER_REPLICAS:-1}
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory ${REDIS_MAXMEMORY:-1gb}
+      --maxmemory-policy noeviction
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    expose:
+      - '6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Queue dashboard. Reachable only through nginx, which requires basic auth.
+  asynqmon:
+    image: hibiken/asynqmon:latest
+    restart: always
+    command:
+      - '--redis-addr=redis:6379'
+      - '--redis-password=${REDIS_PASSWORD}'
+      - '--port=8080'
+    expose:
+      - '8080'
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Optional: serve the frontend from the VPS instead of Vercel.
+  # Enable with `docker compose --profile self-hosted-web up -d`.
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/OWNER/meterrail-web:latest}
+    restart: always
+    profiles: ['self-hosted-web']
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+    expose:
+      - '3000'
+
+volumes:
+  redis-data:
+  certbot-webroot:
+  certbot-certs:
+  nginx-cache:

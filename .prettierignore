@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+dist
+build
+generated
+pnpm-lock.yaml
+apps/api
+indexer/generated

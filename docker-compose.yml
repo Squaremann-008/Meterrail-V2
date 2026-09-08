@@ -1,0 +1,118 @@
+# Local development stack.
+#
+# Postgres and Redis run here; in production those are Neon/Supabase and a
+# managed Redis, and only the api/worker/asynqmon services are deployed (see
+# deploy/docker-compose.prod.yml).
+#
+# The Next.js app is not containerised for development — run `make dev-web` so
+# hot reload works against your own filesystem.
+
+name: meterrail
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-meterrail}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meterrail}
+      POSTGRES_DB: ${POSTGRES_DB:-meterrail}
+      # Fail fast on a corrupted volume rather than starting with a
+      # half-initialised cluster.
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-meterrail} -d ${POSTGRES_DB:-meterrail}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # appendonly keeps queued jobs across a restart; without it a container
+    # bounce silently drops everything asynq had scheduled.
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory ${REDIS_MAXMEMORY:-512mb}
+      --maxmemory-policy noeviction
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-none}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override the host-facing URLs with in-network service names.
+      DATABASE_URL: postgres://${POSTGRES_USER:-meterrail}:${POSTGRES_PASSWORD:-meterrail}@postgres:5432/${POSTGRES_DB:-meterrail}?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: ${APP_ENV:-development}
+      DB_AUTO_MIGRATE: 'true'
+    ports:
+      - '${API_PORT:-8080}:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-none}
+    restart: unless-stopped
+    # Same image as the API, different entrypoint.
+    entrypoint: ['worker']
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-meterrail}:${POSTGRES_PASSWORD:-meterrail}@postgres:5432/${POSTGRES_DB:-meterrail}?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: ${APP_ENV:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  # Asynqmon is the queue dashboard: inspect, retry and archive background jobs.
+  # It is unauthenticated, so it must never be exposed publicly — in production
+  # nginx puts basic auth in front of it.
+  asynqmon:
+    image: hibiken/asynqmon:latest
+    restart: unless-stopped
+    command: ['--redis-addr=redis:6379', '--port=8080']
+    ports:
+      - '${ASYNQMON_PORT:-8081}:8080'
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:

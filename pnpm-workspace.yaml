@@ -1,0 +1,14 @@
+packages:
+  - 'apps/web'
+  - 'packages/*'
+  - 'indexer'
+  # Written by `envio codegen` and gitignored. It ships its own package.json and
+  # a ReScript toolchain, so it has to be a workspace member for pnpm to install
+  # its dependencies — otherwise the generated code will not compile.
+  - 'indexer/generated'
+
+# Hoist the toolchain binaries the Makefile shells out to.
+publicHoistPattern:
+  - '*eslint*'
+  - '*prettier*'
+  - '*types*'

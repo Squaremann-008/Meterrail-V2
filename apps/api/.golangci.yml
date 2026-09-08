@@ -1,0 +1,87 @@
+# golangci-lint configuration.
+# Run locally with `make lint-api`; CI runs the same set.
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - bodyclose      # an unclosed HTTP response body leaks a connection
+    - contextcheck   # every I/O call should take the request's context
+    - errorlint      # use errors.Is/As rather than == and type assertions
+    - copyloopvar
+    - gocritic
+    - goconst
+    - misspell
+    - nilerr         # returning nil after a non-nil error is nearly always a bug
+    - noctx
+    - prealloc
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+
+  settings:
+    errcheck:
+      # Deliberate fire-and-forget calls, checked at the call site instead.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.Rows).Close
+
+    goconst:
+      min-len: 3
+      min-occurrences: 4
+      # Column names in GORM update maps read better inline than behind a
+      # constant, and "status" is a different column in each table anyway.
+      ignore-string-values: '^(status|id|created_at|updated_at|deleted_at|user_id)$'
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        # These fire constantly on idiomatic handler code and add noise.
+        - hugeParam
+        - ifElseChain
+        - singleCaseSwitch
+
+    revive:
+      rules:
+        - name: exported
+          disabled: true  # doc comments are enforced by review, not the linter
+        - name: unused-parameter
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: indent-error-flow
+
+  exclusions:
+    generated: lax
+    rules:
+      # Test files legitimately ignore errors and use long functions.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - goconst
+          - unparam
+      # Seed and migration commands are one-shot scripts.
+      - path: cmd/(seed|migrate)/
+        linters:
+          - gocritic
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/meterrail/api

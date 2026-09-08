@@ -1,0 +1,48 @@
+"""
+An ERC-20 Transfer, one row per log.
+
+Field names here are the contract the Go client codes against: see
+`apps/api/internal/envio/client.go`. Renaming a field means changing both.
+"""
+type Transfer {
+  id: ID!
+  chainId: Int!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+  logIndex: Int!
+  contractAddress: String!
+  from: String! @index
+  to: String! @index
+  value: BigInt!
+}
+
+"An ERC-20 Approval, indexed alongside transfers."
+type Approval {
+  id: ID!
+  chainId: Int!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: String!
+  logIndex: Int!
+  contractAddress: String!
+  owner: String! @index
+  spender: String! @index
+  value: BigInt!
+}
+
+"""
+Running per-address balance deltas, maintained by the handlers.
+
+Derived state like this is why the indexer exists at all: computing it by
+replaying logs on every request would be far too slow.
+"""
+type AccountBalance {
+  id: ID! # `${chainId}-${contractAddress}-${account}`
+  chainId: Int!
+  contractAddress: String!
+  account: String! @index
+  balance: BigInt!
+  transferCount: Int!
+  lastBlockNumber: BigInt!
+}

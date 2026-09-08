@@ -1,0 +1,14 @@
+# Nightly logical backup of the managed Postgres, retained locally and pushed
+# to R2. Neon and Supabase both keep their own PITR backups; this is a second,
+# independent copy you control.
+[Unit]
+Description=Nightly Meterrail database backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# Run on next boot if the machine was down at the scheduled time.
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

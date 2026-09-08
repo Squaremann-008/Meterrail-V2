@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Authenticated areas have nothing useful for a crawler and cost render budget.
+Disallow: /media
+Disallow: /sessions/

@@ -1,0 +1,38 @@
+{
+  "name": "@meterrail/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port ${PORT:-3000}",
+    "build": "next build",
+    "start": "next start --port ${PORT:-3000}",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@dynamic-labs/ethereum": "^5.7.0",
+    "@dynamic-labs/sdk-react-core": "^5.7.0",
+    "@meterrail/shared": "workspace:*",
+    "@tanstack/react-query": "^5.102.0",
+    "agora-rtc-sdk-ng": "^4.24.0",
+    "next": "^16.3.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.5.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "@tanstack/react-query-devtools": "^5.102.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^16.3.4",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.0.0"
+  }
+}

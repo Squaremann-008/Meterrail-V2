@@ -1,0 +1,10 @@
+[Unit]
+Description=Meterrail database backup
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/meterrail
+ExecStart=/opt/meterrail/deploy/scripts/backup-db.sh
+User=deploy
+Group=deploy

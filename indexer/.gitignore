@@ -1,0 +1,4 @@
+# Produced by `envio codegen`; regenerate rather than commit.
+generated/
+.envio/
+logs/

@@ -1,0 +1,31 @@
+{
+  "name": "meterrail",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Meterrail monorepo: Next.js frontend, Go API, Envio indexer.",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @meterrail/web dev",
+    "build": "pnpm --filter @meterrail/shared build && pnpm --filter @meterrail/web build",
+    "lint": "pnpm -r --if-present lint",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml,css}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "rescript",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

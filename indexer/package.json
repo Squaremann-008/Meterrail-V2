@@ -1,0 +1,21 @@
+{
+  "name": "@meterrail/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start",
+    "stop": "envio stop",
+    "local-docker-up": "envio local docker up",
+    "local-docker-down": "envio local docker down",
+    "typecheck": "envio codegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "envio": "^2.31.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

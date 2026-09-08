@@ -1,0 +1,38 @@
+# Systemd unit for the whole Docker Compose stack.
+#
+# Use this when you prefer systemd to own service lifecycle rather than relying
+# on Docker's own restart policies — it makes `systemctl status meterrail`
+# meaningful and ties the stack into the normal boot ordering.
+#
+#   sudo cp deploy/systemd/meterrail.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now meterrail
+
+[Unit]
+Description=Meterrail backend stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/meterrail
+
+Environment=COMPOSE_FILE=/opt/meterrail/deploy/docker-compose.prod.yml
+Environment=ENV_FILE=/opt/meterrail/.env.production
+
+ExecStart=/usr/bin/docker compose --file ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --wait
+ExecStop=/usr/bin/docker compose --file ${COMPOSE_FILE} --env-file ${ENV_FILE} down
+ExecReload=/usr/bin/docker compose --file ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --wait
+
+# Pulling images on a cold start can take a while on a small VPS.
+TimeoutStartSec=600
+Restart=on-failure
+RestartSec=30
+
+User=deploy
+Group=deploy
+
+[Install]
+WantedBy=multi-user.target

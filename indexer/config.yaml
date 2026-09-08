@@ -1,0 +1,44 @@
+# Envio HyperIndex configuration.
+#
+# The Go API does not read this database directly: a cron job pulls new rows
+# through the GraphQL endpoint and mirrors them into the application's own
+# Postgres, so API reads stay available while the indexer resyncs or rewinds.
+name: meterrail-indexer
+description: Indexes ERC-20 transfer activity for the Meterrail platform.
+
+# Postgres 17-compatible output; `envio dev` provisions this locally.
+unordered_multichain_mode: true
+
+# Envio only fetches the block and transaction fields you ask for, because each
+# extra field costs bandwidth on every log. The handlers persist the
+# transaction hash, so it has to be requested explicitly.
+field_selection:
+  transaction_fields:
+    - hash
+
+contracts:
+  - name: ERC20
+    abi_file_path: ./abis/erc20.json
+    handler: ./src/EventHandlers.ts
+    events:
+      - event: Transfer(address indexed from, address indexed to, uint256 value)
+      - event: Approval(address indexed owner, address indexed spender, uint256 value)
+
+networks:
+  # Ethereum mainnet. start_block is deliberately recent: indexing from genesis
+  # would take hours and is almost never what you want in development.
+  - id: 1
+    start_block: 21000000
+    contracts:
+      - name: ERC20
+        # USDC. Replace with your own deployment's address.
+        address:
+          - 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+
+  # Base mainnet.
+  - id: 8453
+    start_block: 22000000
+    contracts:
+      - name: ERC20
+        address:
+          - 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
